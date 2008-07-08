@@ -1,12 +1,7 @@
 require File.join(File.dirname(__FILE__), 'test_helper')
 
 class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
-  def setup
-    HighScore.delete_all
-    DailyHighScore.delete_all
-    WeeklyHighScore.delete_all
-    LifetimeHighScore.delete_all
-  end
+
   
   def test_cleaver_knows_what_the_table_will_be_split_into
     HighScore.create!(:type => 'DailyHighScore')
@@ -27,9 +22,59 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal [2], DailyHighScore.find(:all).map(&:value)
     assert_equal [3], WeeklyHighScore.find(:all).map(&:value)
   end
-
+  
   def test_cleaver_should_accept_chunk_size
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 10000)
     assert_equal 10000, cleaver.chunk_size, 'Should have used initializing chunk size'
+  end
+  
+  def test_cleaver_sets_default_chunk_size
+    cleaver = SingleTableInheritanceCleaver.new(HighScore)
+    assert_not_equal nil, cleaver.chunk_size, 'Should default the chunk size'
+  end
+  
+  def test_cleave_chunk_adds_the_correct_number_of_rows
+    generate_some_high_scores_to_cleave
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 4)
+    assert_difference DailyHighScore, :count, 4 do
+      cleaver.cleave_chunk 'DailyHighScore', 'daily_high_scores'
+    end
+  end
+  
+  def test_cleave_chunk_only_cleaves_to_specified_destination
+    generate_some_high_scores_to_cleave
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => HighScore.count) # ensure that the cleave size would capture the wrong type of records
+    assert_difference WeeklyHighScore, :count, 0 do
+      cleaver.cleave_chunk 'DailyHighScore', 'daily_high_scores'
+    end
+  end
+  
+  def test_cleave_chunk_returns_true_if_rows_added
+    generate_some_high_scores_to_cleave
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 3)
+    assert cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores')
+  end
+  
+  def test_cleave_chunk_returns_nil_if_nothing_added
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 3)
+    assert !cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores')
+  end
+  
+  def test_cleave_chunk_adds_rows_at_specified_offset
+    generate_some_high_scores_to_cleave
+    records_to_move = 5
+    offset = 6
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => records_to_move)
+    cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores', offset)
+    
+    expected_values = HighScore.find(:all, :conditions => {:type => 'DailyHighScore'}, :order => 'id', :offset => offset, :limit => records_to_move).map(&:value)
+    assert_same_elements expected_values, DailyHighScore.find(:all).map(&:value)
+  end
+  
+  def generate_some_high_scores_to_cleave
+    (1..20).each do |i|
+      HighScore.create!(:type => 'DailyHighScore', :value => i, :user_id => i, :statistic_id => 1)
+      HighScore.create!(:type => 'WeeklyHighScore', :value => i, :user_id => i, :statistic_id => 1)
+    end
   end
 end
