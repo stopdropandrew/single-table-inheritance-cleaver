@@ -1,4 +1,4 @@
-class SingleTableInheritanceSplitter
+class SingleTableInheritanceCleaver
   attr_accessor :source, :destinations
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
