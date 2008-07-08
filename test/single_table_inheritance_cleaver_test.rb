@@ -12,19 +12,28 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
   end
   
   def test_specify_destination_table
-    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_table_name' })
-    assert_equal({'WeeklyHighScore' => 'custom_table_name'}, cleaver.destinations)
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
+    assert_equal({'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
   end
 
   def test_specifying_destination_table_should_merge_with_default_destinations
     HighScore.create!(:type => 'DailyHighScore')
     HighScore.create!(:type => 'WeeklyHighScore')
 
-    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_table_name' })
-    assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_table_name'}, cleaver.destinations)
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
+    assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
     # :destinations => 'DailyHighScore' => 'facebook_daily_high_scores'
     # :rejections => { 'daily_high_scores' => [ 'facebook_id', 'facebook_network_id' ] }
     # :conditions => { 'facebook_daily_high_scores' => ['statistic_id in ?', statistic_ids] }
+  end
+
+  def test_overriding_table_should_write_to_correct_table
+    HighScore.create!(:type => 'WeeklyHighScore')
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
+    cleaver.cleave!
+    assert_equal 1, CustomHighScore.count
+    assert_equal 0, WeeklyHighScore.count
   end
 
   def test_split_moves_data_to_correct_tables_with_one_item_per_type

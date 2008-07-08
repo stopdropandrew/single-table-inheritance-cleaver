@@ -15,3 +15,6 @@ end
 
 class WeeklyHighScore < ActiveRecord::Base
 end
+
+class CustomHighScore < ActiveRecord::Base
+end
