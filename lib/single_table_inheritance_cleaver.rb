@@ -1,5 +1,5 @@
 class SingleTableInheritanceCleaver
-  attr_accessor :source, :destinations, :chunk_size
+  attr_accessor :source, :destinations, :chunk_size, :rejections
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
@@ -11,6 +11,8 @@ class SingleTableInheritanceCleaver
     all_types.each do |type|
       self.destinations[type] ||= type.tableize
     end
+    
+    self.rejections = options[:rejections] || {}
     
     self.chunk_size = options[:chunk_size] || 50
   end
@@ -26,8 +28,8 @@ class SingleTableInheritanceCleaver
   end
   
   def cleave_chunk source_type, destination_table_name, offset = 0
-    
     previous_max = source_type.constantize.maximum('id')
+    column_names = self.column_names(destination_table_name)
     latest_insert = ActiveRecord::Base.connection.insert <<-SQL
       INSERT INTO #{destination_table_name}(#{column_names}) SELECT #{column_names} FROM #{source.table_name} AS source_table WHERE source_table.type = '#{source_type}' LIMIT #{self.chunk_size} OFFSET #{offset}
     SQL
@@ -36,10 +38,10 @@ class SingleTableInheritanceCleaver
     return current_max.to_i != previous_max.to_i
   end
   
-  def column_names
+  def column_names(destination_table_name)
     names = self.source.column_names
     
-    names.delete_if { |name| DISALLOWED_COLUMN_NAMES.include?(name) }
+    names.delete_if { |name| DISALLOWED_COLUMN_NAMES.include?(name) || Array(self.rejections[destination_table_name]).include?(name) }
     names.join(', ')
   end
 end

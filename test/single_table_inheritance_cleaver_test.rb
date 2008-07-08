@@ -22,8 +22,6 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
 
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
-    # :destinations => 'DailyHighScore' => 'facebook_daily_high_scores'
-    # :rejections => { 'daily_high_scores' => [ 'facebook_id', 'facebook_network_id' ] }
     # :conditions => { 'facebook_daily_high_scores' => ['statistic_id in ?', statistic_ids] }
   end
 
@@ -36,7 +34,26 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal 0, WeeklyHighScore.count
   end
 
-  def test_split_moves_data_to_correct_tables_with_one_item_per_type
+  def test_adding_rejections_omits_data_for_specified_column
+    HighScore.create!(:type => 'DailyHighScore', :user_id => 3)
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :rejections => {'daily_high_scores' => 'user_id'})
+    cleaver.cleave!
+    
+    assert_equal nil, DailyHighScore.find(:first).user_id
+  end
+
+  def test_adding_rejections_omits_data_for_multiple_columns
+    HighScore.create!(:type => 'DailyHighScore', :user_id => 3, :statistic_id => 6)
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :rejections => {'daily_high_scores' => ['user_id', 'statistic_id']})
+    cleaver.cleave!
+
+    assert_equal nil, DailyHighScore.find(:first).user_id
+    assert_equal nil, DailyHighScore.find(:first).statistic_id
+  end
+
+  def test_cleave_moves_data_to_correct_tables_with_one_item_per_type
     daily = HighScore.create!(:type => 'DailyHighScore', :value => 2)
     weekly = HighScore.create!(:type => 'WeeklyHighScore', :value => 3)
     
