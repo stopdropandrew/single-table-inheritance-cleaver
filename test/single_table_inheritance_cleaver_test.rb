@@ -1,7 +1,6 @@
 require File.join(File.dirname(__FILE__), 'test_helper')
 
 class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
-
   
   def test_cleaver_knows_what_the_table_will_be_split_into
     HighScore.create!(:type => 'DailyHighScore')
@@ -12,6 +11,22 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'weekly_high_scores'}, cleaver.destinations)
   end
   
+  def test_specify_destination_table
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_table_name' })
+    assert_equal({'WeeklyHighScore' => 'custom_table_name'}, cleaver.destinations)
+  end
+
+  def test_specifying_destination_table_should_merge_with_default_destinations
+    HighScore.create!(:type => 'DailyHighScore')
+    HighScore.create!(:type => 'WeeklyHighScore')
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_table_name' })
+    assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_table_name'}, cleaver.destinations)
+    # :destinations => 'DailyHighScore' => 'facebook_daily_high_scores'
+    # :rejections => { 'daily_high_scores' => [ 'facebook_id', 'facebook_network_id' ] }
+    # :conditions => { 'facebook_daily_high_scores' => ['statistic_id in ?', statistic_ids] }
+  end
+
   def test_split_moves_data_to_correct_tables_with_one_item_per_type
     daily = HighScore.create!(:type => 'DailyHighScore', :value => 2)
     weekly = HighScore.create!(:type => 'WeeklyHighScore', :value => 3)
@@ -33,7 +48,6 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120], WeeklyHighScore.find(:all).map(&:value)
     
   end
-  
   
   def test_cleaver_should_accept_chunk_size
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 10000)
