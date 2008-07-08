@@ -12,7 +12,7 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'weekly_high_scores'}, cleaver.destinations)
   end
   
-  def test_split_moves_data_to_correct_tables
+  def test_split_moves_data_to_correct_tables_with_one_item_per_type
     daily = HighScore.create!(:type => 'DailyHighScore', :value => 2)
     weekly = HighScore.create!(:type => 'WeeklyHighScore', :value => 3)
     
@@ -22,6 +22,18 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal [2], DailyHighScore.find(:all).map(&:value)
     assert_equal [3], WeeklyHighScore.find(:all).map(&:value)
   end
+
+  def test_cleave_adds_correct_data_with_several_items_per_type
+    generate_some_high_scores_to_cleave
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 7)
+    cleaver.cleave!
+    
+    assert_equal [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], DailyHighScore.find(:all).map(&:value)
+    assert_equal [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120], WeeklyHighScore.find(:all).map(&:value)
+    
+  end
+  
   
   def test_cleaver_should_accept_chunk_size
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 10000)
@@ -74,7 +86,7 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
   def generate_some_high_scores_to_cleave
     (1..20).each do |i|
       HighScore.create!(:type => 'DailyHighScore', :value => i, :user_id => i, :statistic_id => 1)
-      HighScore.create!(:type => 'WeeklyHighScore', :value => i, :user_id => i, :statistic_id => 1)
+      HighScore.create!(:type => 'WeeklyHighScore', :value => i + 100, :user_id => i, :statistic_id => 1)
     end
   end
 end
