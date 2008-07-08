@@ -1,9 +1,9 @@
 class SingleTableInheritanceCleaver
-  attr_accessor :source, :destinations
+  attr_accessor :source, :destinations, :chunk_size
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
-  def initialize(source)
+  def initialize(source, options = {})
     self.source = source
     
     all_types = source.find(:all, :select => 'DISTINCT type').map {|t| t.attributes['type']}
@@ -11,6 +11,8 @@ class SingleTableInheritanceCleaver
     all_types.each do |type|
       self.destinations[type] = type.tableize
     end
+    
+    self.chunk_size = options[:chunk_size]
   end
   
   # Process records from the source table into the destination tables
