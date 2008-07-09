@@ -32,6 +32,20 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
   end
 
+  def test_should_not_add_rows_for_excluded_source_type
+    HighScore.create!(:type => 'DailyHighScore')
+    HighScore.create!(:type => 'WeeklyHighScore')
+    
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :excluded_types => [ 'DailyHighScore' ] )
+    assert_equal({'WeeklyHighScore' => 'weekly_high_scores'}, cleaver.destinations)
+  end
+  
+  def test_should_not_allow_conflicting_destinations_and_excluded_types
+    assert_raise ArgumentError do
+      SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'DailyHighScore' => 'daily_high_scores'}, :excluded_types => [ 'DailyHighScore' ] )
+    end
+  end
+  
   def test_overriding_table_should_write_to_correct_table
     HighScore.create!(:type => 'WeeklyHighScore')
 

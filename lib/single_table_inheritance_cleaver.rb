@@ -1,21 +1,27 @@
 class SingleTableInheritanceCleaver
-  attr_accessor :source, :destinations, :chunk_size, :rejections, :conditions
+  attr_accessor :source, :destinations, :chunk_size, :rejections, :conditions, :excluded_types
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
   def initialize(source, options = {})
     self.source = source
-    
-    all_types = source.find(:all, :select => 'DISTINCT type').map {|t| t.attributes['type']}
-    self.destinations = options[:destinations] || {}
-    all_types.each do |type|
-      self.destinations[type] ||= type.tableize
-    end
-    
+
     self.rejections = options[:rejections] || {}
     self.conditions = options[:conditions] || {}
-    
     self.chunk_size = options[:chunk_size] || 50
+    self.excluded_types = options[:excluded_types] || []
+    self.destinations = options[:destinations] || {}
+
+    conflicting_types = self.destinations.keys & self.excluded_types
+    raise ArgumentError, "The #{conflicting_types.join(', ')} types were explicitly included and excluded, make up your mind." unless conflicting_types.blank?
+
+    all_types = source.find(:all, :select => 'DISTINCT type').map {|t| t.attributes['type']}
+    valid_types = all_types - self.excluded_types
+    valid_types.each do |type|
+      self.destinations[type] ||= type.tableize
+    end
+
+    
   end
   
   # Process records from the source table into the destination tables
