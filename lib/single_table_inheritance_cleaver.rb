@@ -8,7 +8,7 @@ class SingleTableInheritanceCleaver
 
     self.rejections = options[:rejections] || {}
     self.conditions = options[:conditions] || {}
-    self.chunk_size = options[:chunk_size] || 50
+    self.chunk_size = options[:chunk_size] || 500
     self.excluded_types = options[:excluded_types] || []
     self.destinations = options[:destinations] || {}
 
