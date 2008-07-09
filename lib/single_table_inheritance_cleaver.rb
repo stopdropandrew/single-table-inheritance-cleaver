@@ -21,10 +21,13 @@ class SingleTableInheritanceCleaver
   # Process records from the source table into the destination tables
   def cleave!
     destinations.each do |source_type, destination_table_name|
-      offset = 0
-      while (keep_going = cleave_chunk(source_type, destination_table_name, offset))
-        offset += chunk_size
-      end
+      cleave_destination source_type, destination_table_name
+    end
+  end
+
+  def cleave_destination source_type, destination_table_name, offset = 0
+    while (keep_going = cleave_chunk(source_type, destination_table_name, offset))
+      offset += chunk_size
     end
   end
   
