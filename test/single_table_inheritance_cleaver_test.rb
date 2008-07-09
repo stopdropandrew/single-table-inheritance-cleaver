@@ -11,6 +11,14 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'weekly_high_scores'}, cleaver.destinations)
   end
   
+  def test_cleave_respects_conditions_on_a_destination
+    generate_some_high_scores_to_cleave
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :conditions => {'daily_high_scores' => 'value between 4 and 10' }) # {:value => 4..10}
+    cleaver.cleave!
+    
+    assert_same_elements( (4..10).to_a, DailyHighScore.find(:all).map(&:value) )
+  end
+  
   def test_specify_destination_table
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
     assert_equal({'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
@@ -22,7 +30,6 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
 
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :destinations => { 'WeeklyHighScore' => 'custom_high_scores' })
     assert_equal({'DailyHighScore' => 'daily_high_scores', 'WeeklyHighScore' => 'custom_high_scores'}, cleaver.destinations)
-    # :conditions => { 'facebook_daily_high_scores' => ['statistic_id in ?', statistic_ids] }
   end
 
   def test_overriding_table_should_write_to_correct_table
