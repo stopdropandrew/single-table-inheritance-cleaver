@@ -144,6 +144,12 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_same_elements expected_values, DailyHighScore.find(:all).map(&:value)
   end
   
+  def test_creating_cleaver_raises_if_type_doesnt_constantize
+    assert_raise NameError do
+      SingleTableInheritanceCleaver.new(HighScore, :destinations => {'NotAClass' => 'daily_high_scores'})
+    end
+  end
+  
   def generate_some_high_scores_to_cleave
     (1..20).each do |i|
       HighScore.create!(:type => 'DailyHighScore', :value => i, :user_id => i, :statistic_id => 1)

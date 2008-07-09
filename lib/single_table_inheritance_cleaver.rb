@@ -21,7 +21,7 @@ class SingleTableInheritanceCleaver
       self.destinations[type] ||= type.tableize
     end
 
-    
+    self.destinations.keys.each(&:constantize)
   end
   
   # Process records from the source table into the destination tables
