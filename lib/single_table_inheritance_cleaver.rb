@@ -1,5 +1,5 @@
 class SingleTableInheritanceCleaver
-  attr_accessor :source, :destinations, :chunk_size, :rejections, :conditions, :excluded_types
+  attr_accessor :source, :destinations, :chunk_size, :rejections, :conditions, :excluded_types, :table_name_to_class_hash
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
@@ -21,7 +21,8 @@ class SingleTableInheritanceCleaver
       self.destinations[type] ||= type.tableize
     end
 
-    self.destinations.keys.each(&:constantize)
+    self.table_name_to_class_hash = {}
+    self.destinations.values.each { |table_name| self.table_name_to_class_hash[table_name] = table_name.classify.constantize }
   end
   
   # Process records from the source table into the destination tables
@@ -38,23 +39,29 @@ class SingleTableInheritanceCleaver
   end
   
   def cleave_chunk source_type, destination_table_name, offset = 0
-    previous_max = source_type.constantize.maximum('id')
-    column_names = self.column_names(destination_table_name)
-
+    return nil unless self.destinations.keys.include?(source_type)
+    
+    source_class = source_type.constantize
+    previous_max = source_class.maximum('id')
+    column_names = column_names(destination_table_name)
+    
     conditions = source.send(:merge_conditions, {:type => source_type}, self.conditions[destination_table_name])
 
-    latest_insert = source.connection.insert <<-SQL
-      INSERT INTO #{destination_table_name}(#{column_names}) SELECT #{column_names} FROM #{source.table_name} WHERE #{conditions} LIMIT #{self.chunk_size} OFFSET #{offset}
+    sql_column_names = column_names.join(', ')
+    sql = <<-SQL
+      INSERT INTO #{destination_table_name}(#{sql_column_names}) SELECT #{sql_column_names} FROM #{source.table_name} WHERE #{conditions} LIMIT #{self.chunk_size} OFFSET #{offset}
     SQL
-    current_max = source_type.constantize.maximum('id')
+    latest_insert = source.connection.insert sql
+    current_max = source_class.maximum('id')
     
     return current_max.to_i != previous_max.to_i
   end
 
   def column_names(destination_table_name)
-    names = self.source.column_names
+    names = self.source.columns.map(&:name)
     
     names.delete_if { |name| DISALLOWED_COLUMN_NAMES.include?(name) || Array(self.rejections[destination_table_name]).include?(name) }
-    names.join(', ')
+    names = names & self.table_name_to_class_hash[destination_table_name].column_names
+    names
   end
 end

@@ -74,6 +74,21 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_equal nil, DailyHighScore.find(:first).statistic_id
   end
 
+  def test_cleave_copies_over_all_columns
+    today = Date.today
+    HighScore.create!(:type => 'DailyHighScore', :value => 2, :user_id => 4, :statistic_id => 10, :date => today)
+    
+    cleaver = SingleTableInheritanceCleaver.new(HighScore)
+    cleaver.cleave!
+    
+    daily = DailyHighScore.find(:first)
+    assert_equal 1, DailyHighScore.count
+    assert_equal 2, daily.value
+    assert_equal 4, daily.user_id
+    assert_equal 10, daily.statistic_id
+    assert_equal today, daily.date
+  end
+
   def test_cleave_moves_data_to_correct_tables_with_one_item_per_type
     daily = HighScore.create!(:type => 'DailyHighScore', :value => 2)
     weekly = HighScore.create!(:type => 'WeeklyHighScore', :value => 3)
@@ -128,9 +143,15 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores')
   end
   
-  def test_cleave_chunk_returns_nil_if_nothing_added
+  def test_cleave_chunk_returns_nil_if_type_not_found
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 3)
     assert !cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores')
+  end
+  
+  def test_cleave_chunk_returns_nil_if_nothing_added
+    HighScore.create!(:type => 'DailyHighScore', :value => 2)
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 3)
+    assert !cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores', 10)
   end
   
   def test_cleave_chunk_adds_rows_at_specified_offset
@@ -144,9 +165,18 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_same_elements expected_values, DailyHighScore.find(:all).map(&:value)
   end
   
-  def test_creating_cleaver_raises_if_type_doesnt_constantize
+  def test_creating_cleaver_raises_if_destination_table_doesnt_constantize
     assert_raise NameError do
-      SingleTableInheritanceCleaver.new(HighScore, :destinations => {'NotAClass' => 'daily_high_scores'})
+      SingleTableInheritanceCleaver.new(HighScore, :destinations => {'DailyHighScore' => 'not_a_class'})
+    end
+  end
+  
+  def test_cleave_will_detect_missing_columns_in_destinations_and_skip_them
+    HighScore.create!(:type => 'LifetimeHighScore', :value => 2, :date => Date.today)
+
+    cleaver = SingleTableInheritanceCleaver.new(HighScore)
+    assert_nothing_raised do
+      cleaver.cleave!
     end
   end
   
