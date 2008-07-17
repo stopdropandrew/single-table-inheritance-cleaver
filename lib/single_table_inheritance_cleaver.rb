@@ -7,9 +7,42 @@ class SingleTableInheritanceCleaver
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
   class SourceClass < ActiveRecord::Base
+    class << self
+      public :merge_conditions, :construct_finder_sql
+      def last_id_for_chunk options
+        offset = options[:limit] - 1
+        max_id_attrs = self.connection.execute(
+          construct_finder_sql(options.merge(:select => 'id', :offset => offset, :limit => 1))
+        ).first
+        return false unless max_id_attrs
+
+        max_id_attrs['id'].to_i
+      end
+    end
   end
-  
+
   class DestinationClass < ActiveRecord::Base
+    def self.copy_chunk table_name, starting_id, new_options = {}
+      set_table_name table_name
+      options = new_options.clone
+      options[:conditions] = merge_conditions(new_options[:conditions], [ 'id >= ?', starting_id ] )
+
+      columns = options.delete(:columns)
+      sql_column_names = columns.join(', ')
+
+      sql = "INSERT INTO #{table_name} (#{sql_column_names}) #{SourceClass.construct_finder_sql(options.merge(:select => sql_column_names))}"
+
+      previous_max = self.maximum('id')
+      self.connection.insert sql
+      current_max = self.maximum('id')
+
+      return false unless current_max.to_i != previous_max.to_i
+
+      last_id_processed = SourceClass.last_id_for_chunk(options)
+      return false unless last_id_processed
+
+      last_id_processed + 1
+    end
   end
 
   def initialize(source, options = {})
@@ -42,7 +75,7 @@ class SingleTableInheritanceCleaver
     additional_conditions = options[:conditions] || {}
     self.conditions = {}
     self.destinations.each do |source_type, destination_table_name|
-      self.conditions[destination_table_name] = merge_conditions(additional_conditions, :type => source_type)
+      self.conditions[destination_table_name] = SourceClass.merge_conditions(additional_conditions, :type => source_type)
     end
   end
   
@@ -75,37 +108,14 @@ class SingleTableInheritanceCleaver
   
   def cleave_chunk source_type, destination_table_name, starting_id = 0
     return nil unless self.destinations.keys.include?(source_type)
-    
-    DestinationClass.set_table_name destination_table_name
-    previous_max = DestinationClass.maximum('id')
-    column_names = column_names(destination_table_name)
-    
-    conditions = merge_conditions(self.conditions[destination_table_name], [ 'id >= ?', starting_id ] )
-    sql_column_names = column_names.join(', ')
 
-    sql = [
-      'INSERT INTO ', destination_table_name,
-      '(', sql_column_names, ') ',
-      job_select(sql_column_names, conditions)
-    ].join
-
-    SourceClass.connection.insert sql
-    current_max = DestinationClass.maximum('id')
-
-    return false unless current_max.to_i != previous_max.to_i
-
-    last_id_processed = SourceClass.connection.execute(job_select('id', conditions)).map do |r| r['id'].to_i end.max
-    last_id_processed + 1
-  end
-
-  def job_select columns, conditions
-    [
-      'SELECT ', columns,
-      ' FROM ', SourceClass.table_name,
-      ' WHERE ', conditions,
-      ' ORDER BY id',
-      ' LIMIT ', chunk_size
-    ].join
+    DestinationClass.copy_chunk(
+      destination_table_name,
+      starting_id,
+      :columns => column_names(destination_table_name),
+      :conditions => conditions[destination_table_name],
+      :limit => chunk_size
+    )
   end
 
   def column_names(destination_table_name)
@@ -121,8 +131,8 @@ class SingleTableInheritanceCleaver
     puts [ Time.now, ': ', what ].join if output
   end
 
-  def merge_conditions condition1, condition2
-    SourceClass.send(:merge_conditions, condition1, condition2)
+  def merge_conditions *args
+    SourceClass.merge_conditions *args
   end
 
 end
