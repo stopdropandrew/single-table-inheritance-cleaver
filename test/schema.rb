@@ -23,4 +23,9 @@ ActiveRecord::Schema.define(:version => 0) do
     t.date :date
     t.integer :user_id, :value, :statistic_id
   end 
+
+  create_table :custom_no_class_high_scores, :force => true do |t|
+    t.date :date
+    t.integer :user_id, :value, :statistic_id
+  end
 end

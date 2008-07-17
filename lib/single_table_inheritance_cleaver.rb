@@ -2,7 +2,7 @@ class SingleTableInheritanceCleaver
   attr_accessor :source, :destinations,
     :conditions, :rejections, :excluded_types,
     :chunk_size, :output,
-    :table_name_to_class_hash
+    :allowed_column_names_for
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
@@ -31,8 +31,13 @@ class SingleTableInheritanceCleaver
       self.destinations[type] ||= type.tableize
     end
 
-    self.table_name_to_class_hash = {}
-    self.destinations.values.each { |table_name| self.table_name_to_class_hash[table_name] = table_name.classify.constantize }
+    self.allowed_column_names_for = {}
+    self.destinations.values.each do |table_name|
+      begin
+        self.allowed_column_names_for[table_name] = table_name.classify.constantize.column_names
+      rescue NameError
+      end
+    end
 
     additional_conditions = options[:conditions] || {}
     self.conditions = {}
@@ -107,7 +112,8 @@ class SingleTableInheritanceCleaver
     names = SourceClass.columns.map(&:name)
     
     names.delete_if { |name| DISALLOWED_COLUMN_NAMES.include?(name) || Array(self.rejections[destination_table_name]).include?(name) }
-    names = names & self.table_name_to_class_hash[destination_table_name].column_names
+    allowed_column_names = self.allowed_column_names_for[destination_table_name]
+    names &= allowed_column_names if allowed_column_names
     names
   end
 

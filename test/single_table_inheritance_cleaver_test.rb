@@ -1,6 +1,10 @@
 require File.join(File.dirname(__FILE__), 'test_helper')
 
+class TestHighScore < ActiveRecord::Base
+end
+
 class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
+
   def test_should_not_output_by_default
     cleaver = SingleTableInheritanceCleaver.new('high_scores')
     assert !cleaver.output
@@ -175,10 +179,14 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert_same_elements expected_values, DailyHighScore.find(:all).map(&:value)
   end
   
-  def test_creating_cleaver_raises_if_destination_table_doesnt_constantize
-    assert_raise NameError do
-      SingleTableInheritanceCleaver.new('high_scores', :destinations => {'DailyHighScore' => 'not_a_class'})
-    end
+  def test_creating_cleaver_copies_all_columns_if_destination_table_doesnt_constantize
+    HighScore.create!(:type => 'DailyHighScore', :value => 99)
+
+    cleaver = SingleTableInheritanceCleaver.new('high_scores', :destinations => {'DailyHighScore' => 'custom_no_class_high_scores'})
+    TestHighScore.set_table_name 'custom_no_class_high_scores'
+    cleaver.cleave!
+
+    assert_equal 99, TestHighScore.find(:first).value
   end
   
   def test_cleave_will_detect_missing_columns_in_destinations_and_skip_them
