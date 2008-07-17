@@ -1,6 +1,8 @@
 class SingleTableInheritanceCleaver
-  attr_accessor :source, :destinations, :chunk_size, :rejections, :conditions, :excluded_types, :table_name_to_class_hash,
-    :output
+  attr_accessor :source, :destinations,
+    :conditions, :rejections, :excluded_types,
+    :chunk_size, :output,
+    :table_name_to_class_hash
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
@@ -11,8 +13,8 @@ class SingleTableInheritanceCleaver
   end
 
   def initialize(source, options = {})
-    SourceClass.table_name = source.to_s.tableize
     self.source = source
+    SourceClass.table_name = source.to_s
 
     self.rejections = options[:rejections] || {}
     self.chunk_size = options[:chunk_size] || 500

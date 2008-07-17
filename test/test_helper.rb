@@ -18,7 +18,7 @@ ActiveRecord::Base.establish_connection(config[ENV['DB'] || 'sqlite3'])
 
 load(File.join(File.dirname(__FILE__), 'schema.rb'))
 
-require 'models'
+require 'test/models'
 require File.join(File.dirname(__FILE__), '../init')
 
 class Test::Unit::TestCase
