@@ -1,6 +1,15 @@
 require File.join(File.dirname(__FILE__), 'test_helper')
 
 class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
+  def test_should_not_output_by_default
+    cleaver = SingleTableInheritanceCleaver.new(HighScore)
+    assert !cleaver.output
+  end
+
+  def test_should_output
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :output => true)
+    assert cleaver.output
+  end
   
   def test_cleaver_knows_what_the_table_will_be_split_into
     HighScore.create!(:type => 'DailyHighScore')
@@ -13,10 +22,11 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
   
   def test_cleave_respects_conditions_on_a_destination
     generate_some_high_scores_to_cleave
-    cleaver = SingleTableInheritanceCleaver.new(HighScore, :conditions => {'daily_high_scores' => 'value between 4 and 10' }) # {:value => 4..10}
+    cleaver = SingleTableInheritanceCleaver.new(HighScore, :conditions => 'value between 10 and 110') # {:value => 4..10}
     cleaver.cleave!
     
-    assert_same_elements( (4..10).to_a, DailyHighScore.find(:all).map(&:value) )
+    assert_same_elements( (10..20).to_a, DailyHighScore.find(:all).map(&:value) )
+    assert_same_elements( (101..110).to_a, WeeklyHighScore.find(:all).map(&:value) )
   end
   
   def test_specify_destination_table
@@ -105,7 +115,7 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
 
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => 7)
     cleaver.cleave!
-    
+
     assert_equal [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], DailyHighScore.find(:all).map(&:value)
     assert_equal [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120], WeeklyHighScore.find(:all).map(&:value)
     
@@ -154,14 +164,14 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     assert !cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores', 10)
   end
   
-  def test_cleave_chunk_adds_rows_at_specified_offset
+  def test_cleave_chunk_adds_rows_at_specified_id
     generate_some_high_scores_to_cleave
     records_to_move = 5
-    offset = 6
+    starting_id = 6
     cleaver = SingleTableInheritanceCleaver.new(HighScore, :chunk_size => records_to_move)
-    cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores', offset)
-    
-    expected_values = HighScore.find(:all, :conditions => {:type => 'DailyHighScore'}, :order => 'id', :offset => offset, :limit => records_to_move).map(&:value)
+    cleaver.cleave_chunk('DailyHighScore', 'daily_high_scores', starting_id)
+
+    expected_values = HighScore.find(:all, :conditions => [ 'type = ? AND id > ?', 'DailyHighScore', starting_id ], :order => 'id', :limit => records_to_move).map(&:value)
     assert_same_elements expected_values, DailyHighScore.find(:all).map(&:value)
   end
   
