@@ -11,12 +11,8 @@ class SingleTableInheritanceCleaver
       public :merge_conditions, :construct_finder_sql
       def last_id_for_chunk options
         offset = options[:limit] - 1
-        max_id_attrs = self.connection.execute(
-          construct_finder_sql(options.merge(:select => 'id', :offset => offset, :limit => 1))
-        ).first
-        return false unless max_id_attrs
-
-        max_id_attrs['id'].to_i
+        return false unless max_id_record = self.find(:first, options.merge(:select => 'id', :offset => offset))
+        max_id_record.id
       end
     end
   end
