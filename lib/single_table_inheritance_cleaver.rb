@@ -11,8 +11,8 @@ class SingleTableInheritanceCleaver
       public :merge_conditions, :construct_finder_sql
       def last_id_for_chunk options
         offset = options[:limit] - 1
-        return false unless max_id_record = self.find(:first, options.merge(:select => 'id', :offset => offset))
-        max_id_record.id
+        max_id_record = self.find(:first, options.merge(:select => 'id', :offset => offset))
+        return max_id_record ? max_id_record.id : false
       end
     end
   end
@@ -98,7 +98,7 @@ class SingleTableInheritanceCleaver
     while (starting_id = cleave_chunk(source_type, destination_table_name, starting_id))
       chunks_cleaved += 1
       percent = chunks_cleaved * 100 / total_chunks_to_cleave
-      status_update "[#{chunks_cleaved}/#{total_chunks_to_cleave} #{percent}%]" if 0 == chunks_cleaved % output_interval
+      status_update "[#{chunks_cleaved}/#{total_chunks_to_cleave} #{percent}%]\tnext chunk starting at #{source}:#{starting_id}" if 0 == chunks_cleaved % output_interval
     end
   end
   
@@ -110,7 +110,8 @@ class SingleTableInheritanceCleaver
       starting_id,
       :columns => column_names(destination_table_name),
       :conditions => conditions[destination_table_name],
-      :limit => chunk_size
+      :limit => chunk_size,
+      :order => 'id'
     )
   end
 

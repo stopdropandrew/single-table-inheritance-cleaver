@@ -116,10 +116,10 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
 
   def test_cleave_adds_correct_data_with_several_items_per_type
     generate_some_high_scores_to_cleave
-
+    
     cleaver = SingleTableInheritanceCleaver.new('high_scores', :chunk_size => 7)
     cleaver.cleave!
-
+    
     assert_equal [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], DailyHighScore.find(:all).map(&:value)
     assert_equal [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120], WeeklyHighScore.find(:all).map(&:value)
     
@@ -202,6 +202,8 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     (1..20).each do |i|
       HighScore.create!(:type => 'DailyHighScore', :value => i, :user_id => i, :statistic_id => 1)
       HighScore.create!(:type => 'WeeklyHighScore', :value => i + 100, :user_id => i, :statistic_id => 1)
+      HighScore.create!(:type => 'LifetimeHighScore', :value => i + 1000, :user_id => i, :statistic_id => 1)
+      HighScore.create!(:type => 'LifetimeHighScore', :value => i + 2000, :user_id => i + 100, :statistic_id => 1)
     end
   end
 end
