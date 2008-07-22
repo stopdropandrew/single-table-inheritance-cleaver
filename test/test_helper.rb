@@ -14,11 +14,12 @@ Debugger.start
 config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
 ActiveRecord::Base.configurations = config
 ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + '/debug.log')
-ActiveRecord::Base.establish_connection(config[ENV['DB'] || 'sqlite3'])
+ActiveRecord::Base.establish_connection(config[ENV['DB'] || 'mysql'])
 
 load(File.join(File.dirname(__FILE__), 'schema.rb'))
 
-require 'test/models'
+require "#{File.dirname(__FILE__)}/models"
+
 require File.join(File.dirname(__FILE__), '../init')
 
 class Test::Unit::TestCase
