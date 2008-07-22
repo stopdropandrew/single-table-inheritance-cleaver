@@ -2,7 +2,7 @@ class SingleTableInheritanceCleaver
   attr_accessor :source, :destinations,
     :conditions, :rejections, :excluded_types,
     :chunk_size, :output,
-    :allowed_column_names_for
+    :allowed_column_names_for, :indexes
 
   DISALLOWED_COLUMN_NAMES = %w(id type)
 
@@ -18,6 +18,7 @@ class SingleTableInheritanceCleaver
   end
 
   class DestinationClass < ActiveRecord::Base
+    cattr_accessor :most_recent_copy_sql
     def self.copy_chunk table_name, starting_id, new_options = {}
       set_table_name table_name
       options = new_options.clone
@@ -25,10 +26,14 @@ class SingleTableInheritanceCleaver
 
       columns = options.delete(:columns)
       sql_column_names = columns.join(', ')
+      
+      index = options.delete(:index)
+      options[:from] = "#{SourceClass.quoted_table_name} USE INDEX(#{index})" if index
 
       sql = "INSERT INTO #{table_name} (#{sql_column_names}) #{SourceClass.construct_finder_sql(options.merge(:select => sql_column_names))}"
 
       previous_max = self.maximum('id')
+      self.most_recent_copy_sql = sql
       self.connection.insert sql
       current_max = self.maximum('id')
 
@@ -50,6 +55,7 @@ class SingleTableInheritanceCleaver
     self.excluded_types = options[:excluded_types] || []
     self.destinations = options[:destinations] || {}
     self.output = options[:output]
+    self.indexes = options[:indexes] || {}
 
     conflicting_types = self.destinations.keys & self.excluded_types
     raise ArgumentError, "The #{conflicting_types.join(', ')} types were explicitly included and excluded, make up your mind." unless conflicting_types.blank?
@@ -111,7 +117,8 @@ class SingleTableInheritanceCleaver
       :columns => column_names(destination_table_name),
       :conditions => conditions[destination_table_name],
       :limit => chunk_size,
-      :order => 'id'
+      :order => 'id',
+      :index => indexes[source_type]
     )
   end
 

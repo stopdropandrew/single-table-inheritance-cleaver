@@ -198,6 +198,26 @@ class SingleTableInheritanceCleaverTest < Test::Unit::TestCase
     end
   end
   
+  def test_use_index_raises_if_index_doesnt_exist
+    HighScore.create!(:type => 'LifetimeHighScore', :value => 2, :date => Date.today)
+
+    cleaver = SingleTableInheritanceCleaver.new('high_scores', :indexes => {'LifetimeHighScore' => 'index_doesnt_exist'})
+    cleaver.cleave!
+    flunk 'Should have raised.'
+  rescue => e
+    assert e.message.index("Key 'index_doesnt_exist' doesn't exist in table 'high_scores'"), "Error raised should be that the index doesn't exist"
+  end
+  
+  def test_last_copy_sql_uses_index
+    HighScore.create!(:type => 'LifetimeHighScore', :value => 2, :date => Date.today)
+
+    cleaver = SingleTableInheritanceCleaver.new('high_scores', :indexes => {'LifetimeHighScore' => 'PRIMARY'})
+    cleaver.cleave!
+    
+    assert /`high_scores` USE INDEX\(PRIMARY\)/.match(SingleTableInheritanceCleaver::DestinationClass.most_recent_copy_sql),
+              "Most recent SQL '#{SingleTableInheritanceCleaver::DestinationClass.most_recent_copy_sql}' used to copy rows did not contain \"`high_scores` USE INDEX(PRIMARY)\""
+  end
+  
   def generate_some_high_scores_to_cleave
     (1..20).each do |i|
       HighScore.create!(:type => 'DailyHighScore', :value => i, :user_id => i, :statistic_id => 1)
